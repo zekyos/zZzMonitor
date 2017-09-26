@@ -8,6 +8,40 @@
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <SplitView x:Name="Splitter" IsPaneOpen="True" Grid.Column="1" DisplayMode="Inline" Grid.Row="1">
+            <SplitView.Pane>
+                <RelativePanel Margin="10,0,0,0">
+                    <ListBox x:Name="ScenarioControl" SelectionChanged="ScenarioControl_SelectionChanged"
+                             SelectionMode="Single" HorizontalAlignment="Left" Background="Transparent" BorderThickness="0"
+                             VerticalAlignment="Top" Margin="0,10,0,0"
+                             ItemsSource="{x:Bind scenarios}" DisplayMemberPath="Title">
+                    </ListBox>
+                    <StackPanel x:Name="FooterPanel" Orientation="Vertical" RelativePanel.AlignBottomWithPanel="True">
+                        <TextBlock Text="Footer Panel"/>
+                    </StackPanel>
+                </RelativePanel>
+            </SplitView.Pane>
+            <RelativePanel>
+                <Frame x:Name="ScenarioFrame" Margin="0,5,0,0" RelativePanel.AlignTopWithPanel="True"
+                       RelativePanel.AlignRightWithPanel="True" RelativePanel.AlignLeftWithPanel="True"/>
+            </RelativePanel>
+        </SplitView>
+
+        <StackPanel x:Name="HeaderPanel" Orientation="Horizontal">
+            <Border Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">
+                <ToggleButton VerticalAlignment="Top" Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
+                    <ToggleButton.Content>
+                        <FontIcon x:Name="Hamburger" Glyph="&#xE700;" Margin="0,10,0,0"/>
+                    </ToggleButton.Content>
+                </ToggleButton>
+            </Border>
+            <TextBlock x:Name="Header" Text="Sensor Tag Reader" Margin="10,15,0,0"/>
+        </StackPanel>
 
     </Grid>
 </Page>
