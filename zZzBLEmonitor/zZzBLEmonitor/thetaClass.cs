@@ -21,11 +21,6 @@ namespace zZzBLEmonitor
                 timeStamp = DateTime.Now;
             }
         }
-        public byte position
-        {
-            get { return position; }
-            set { position = value; }
-        }
         // String builder for the angles
         public string StringTheta
         {
@@ -36,7 +31,6 @@ namespace zZzBLEmonitor
                 {
                     stringData.Append(element.ToString() + ',');
                 }
-                stringData.Append(position.ToString() + ',');
                 stringData.AppendLine(timeStamp.ToString("HH,mm,ss,fff"));
                 return stringData.ToString(); ;
             }

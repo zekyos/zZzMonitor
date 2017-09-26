@@ -155,12 +155,11 @@ namespace zZzBLEmonitor
                     {
                         selectedService = servicesResult.Services.Single();
                         Debug.WriteLine($"Service found: {selectedService.Uuid}");
-                        try
-                        {
-                            characResult = await selectedService.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
-                            /*characResult = await selectedService.GetCharacteristicsForUuidAsync(
-                                            rootPage.BREATHING_UUID, BluetoothCacheMode.Uncached);*/
-
+                        try {
+                        
+                            // Gets the Breathing characteristic
+                            characResult = await selectedService.GetCharacteristicsForUuidAsync(
+                                            BrService.BREATHING_UUID, BluetoothCacheMode.Uncached);
                         }
                         catch (Exception ex)
                         {
@@ -218,31 +217,23 @@ namespace zZzBLEmonitor
             {// Not registered to notifications
                 try
                 {
-                    int i = 0;
-                    foreach(GattCharacteristic characteristic in selectedCharacteristic)
+                    GattCharacteristic characteristic = selectedCharacteristic.Last();
+                    GattCommunicationStatus result =
+                    await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                        GattClientCharacteristicConfigurationDescriptorValue.Notify);
+                    if (result == GattCommunicationStatus.Success)
+                    {   
+                        characteristic.ValueChanged += Characteristic_ValueChanged;
+                        OnNewDataEnqueued += new ElementEnqueued(OnNewDataEnqueuedFxn);
+                        OnNewPointsAdded += new PointsAdded(OnNewPointsAddedFxn);
+                        IsValueChangedHandlerRegistered = true;
+                        acquireButton.Label = "Stop";
+                        acquireButton.Icon = new SymbolIcon(Symbol.Stop);
+                        stopwatch.Start();
+                    }
+                    else
                     {
-                        GattCommunicationStatus result =
-                        await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
-                            GattClientCharacteristicConfigurationDescriptorValue.Notify);
-                        if (result == GattCommunicationStatus.Success)
-                        {
-                            characteristic.ValueChanged += Characteristic_ValueChanged;
-                            if(i == 0)
-                            {
-                                OnNewDataEnqueued += new ElementEnqueued(OnNewDataEnqueuedFxn);
-                                OnNewPointsAdded += new PointsAdded(OnNewPointsAddedFxn);
-                                IsValueChangedHandlerRegistered = true;
-                                acquireButton.Label = "Stop";
-                                acquireButton.Icon = new SymbolIcon(Symbol.Stop);
-                                stopwatch.Start();
-                            }
-                            i++;
-                        }
-                        else
-                        {
-                            rootPage.notifyFlyout("Error acquiring! " + result.ToString(), acquireButton);
-                        }
-
+                        rootPage.notifyFlyout("Error acquiring! " + result.ToString(), acquireButton);
                     }
                 }
                 catch (Exception ex) //(UnauthorizedAccessException ex)
@@ -253,10 +244,8 @@ namespace zZzBLEmonitor
             }
             else
             {// Unregister for notifications
-                foreach(GattCharacteristic characteristic in selectedCharacteristic)
-                {
-                    characteristic.ValueChanged -= Characteristic_ValueChanged;
-                }
+                GattCharacteristic characteristic = selectedCharacteristic.Last();
+                characteristic.ValueChanged -= Characteristic_ValueChanged;
                 OnNewDataEnqueued -= OnNewDataEnqueuedFxn;
                 OnNewPointsAdded -= OnNewPointsAddedFxn;
                 IsValueChangedHandlerRegistered = false;
@@ -303,10 +292,11 @@ namespace zZzBLEmonitor
                 // The angles are quantized as a signed 8 bit number that 
                 // represents -180 to 180 degrees
                 sbyte tmp0;
+                // Getting position
+                position = unchecked((byte)newValue[18]);
                 int counter = 0;
                 for (int i = 0; i < 18; i++)
-                {
-                    //tmp0 = Convert.ToSByte(newValue[i]);
+                {//Getting angles
                     tmp0 = unchecked((sbyte)newValue[i]);
                     newData[counter] = (tmp0 * 360) / 256;
                     counter++;
@@ -314,7 +304,6 @@ namespace zZzBLEmonitor
                     {
                         thetaClass newTetha = new thetaClass();
                         newTetha.ThetaData = newData;
-                        newTetha.position = position;
                         dataQueue.Enqueue(newTetha);
                         plotQueue.Enqueue(newTetha);
                         counter = 0;
@@ -329,12 +318,7 @@ namespace zZzBLEmonitor
                 if (OnNewPointsAdded != null)
                 { OnNewPointsAdded(this, EventArgs.Empty); }
             }
-            // Position monitoring notification
-            else if (sender.Uuid.Equals(BrService.POSITION_UUID))
-            {
-                position = newValue[0];
-
-            }
+            //Check for other services sending data...
         }
 
         // -->> Writes the new data to a file <<--

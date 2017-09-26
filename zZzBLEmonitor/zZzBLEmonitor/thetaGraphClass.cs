@@ -83,7 +83,7 @@ namespace zZzBLEmonitor
             xPlot.Points.Add(new Point(axisX, zeroY - newPoints.ThetaX * scale));//Acc X point
             yPlot.Points.Add(new Point(axisX, zeroY - newPoints.ThetaY * scale));//Acc Y point
             zPlot.Points.Add(new Point(axisX, zeroY - newPoints.ThetaZ * scale));//Acc Z point
-            position.Points.Add(new Point(axisX, zeroY - newPoints.position * 100));//Acc Z point
+            //position.Points.Add(new Point(axisX, zeroY - newPoints.bodyPos * 100));//Acc Z point
 
             graphCanvas.UpdateLayout();
             axisX += tickX;
