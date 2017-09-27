@@ -51,7 +51,7 @@ namespace zZzBLEmonitor
         private List<GattCharacteristic> selectedCharacteristic = new List<GattCharacteristic>();
         private bool IsValueChangedHandlerRegistered = false;
         // Graph
-        private thetaGraphClass graph = new thetaGraphClass();
+        private GraphClass graph = new GraphClass();
         // Data files names
         public string timeStamp = null;
         // New Data Enqueued Event
@@ -106,8 +106,11 @@ namespace zZzBLEmonitor
         private async void connectButton_Click(object sender, RoutedEventArgs e)
         {
             connectButton.IsEnabled = false;
-            graph.Initialize(graphStackPanel, 1);
-            graph.Background();
+            graph.Initialize(graphStackPanel,1);
+            graph.Background(Colors.WhiteSmoke);
+            graph.AddPlot(Colors.Red);
+            graph.AddPlot(Colors.Blue);
+            graph.AddPlot(Colors.LimeGreen);
             rootPage.ShowProgressRing(connectingProgressRing, true);
             if (IsValueChangedHandlerRegistered)
             {// Reconnecting
@@ -361,7 +364,7 @@ namespace zZzBLEmonitor
                         if (dataQueue.TryDequeue(out dequeued))//Dqueues new data
                         {
                             dataTextBlock.Text = dequeued.StringTheta;
-                            graph.AddPoints(dequeued);
+                            graph.AddPoints(dequeued.ThetaData);
                         }
                     }
                     timerTextBlock.Text = Convert.ToString(stopwatch.Elapsed);

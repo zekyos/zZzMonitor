@@ -64,18 +64,13 @@ namespace zZzBLEmonitor
     {
         private Canvas graphCanvas = new Canvas();
 
-        private Polyline xAccPlot = new Polyline();
-        private Polyline yAccPlot = new Polyline();
-        private Polyline zAccPlot = new Polyline();
-        private Polyline xGyroPlot = new Polyline();
-        private Polyline yGyroPlot = new Polyline();
-        private Polyline zGyroPlot = new Polyline();
+        private List<Polyline> plotsList = new List<Polyline>();
 
-        private double tickX = 0, maxTickX = 0, axisX = 0, zeroY = 0, scaleAcc = 0, scaleGyro = 0;
+        private double tickX = 0, maxTickX = 0, axisX = 0, zeroY = 0, scale = 0;
 
-        public void Background()
+        public void Background(Color backgndColor)
         {
-            graphCanvas.Background = new SolidColorBrush(Colors.WhiteSmoke);
+            graphCanvas.Background = new SolidColorBrush(backgndColor);
         }
 
 #region// Initializing
@@ -83,54 +78,44 @@ namespace zZzBLEmonitor
         {
             graphContainer.Children.Clear();
             graphCanvas.Children.Clear();
-            AttachCanvas(graphContainer);
+            graphContainer.Children.Add(graphCanvas);
             ResizeCanvas(graphContainer);
             tickX = ticksX;//Distance between X values in X axis
             axisX = 0;//Sets the X axis position to the next Tick
-
-            xAccPlot.Stroke = new SolidColorBrush(Colors.Black);//AccX Plot Color
-            yAccPlot.Stroke = new SolidColorBrush(Colors.DarkBlue);//AccY Plot Color
-            zAccPlot.Stroke = new SolidColorBrush(Colors.DarkGreen);//AccZ Plot Color
-            xGyroPlot.Stroke = new SolidColorBrush(Colors.Gray);//Gyro X Plot Color
-            yGyroPlot.Stroke = new SolidColorBrush(Colors.DodgerBlue);//Gyro Y Plot Color
-            zGyroPlot.Stroke = new SolidColorBrush(Colors.LimeGreen);//Gyro Z Plot Color
-            Point pointZero = new Point(0, zeroY);//Point at the origin
-
-            xAccPlot.Points.Add(pointZero);
-            yAccPlot.Points.Add(pointZero);
-            zAccPlot.Points.Add(pointZero);
-            xGyroPlot.Points.Add(pointZero);
-            yGyroPlot.Points.Add(pointZero);
-            zGyroPlot.Points.Add(pointZero);
-
-            //graphCanvas.Children.Add(xAccPlot);
-            //graphCanvas.Children.Add(yAccPlot);
-            //graphCanvas.Children.Add(zAccPlot);
-            graphCanvas.Children.Add(xGyroPlot);
-            graphCanvas.Children.Add(yGyroPlot);
-            graphCanvas.Children.Add(zGyroPlot);
-
-            Clear();
         }
 #endregion
-        public void Clear()//Clears all points from the plots
+        public void AddPlot(Color plotColor)
+        { 
+            Polyline plot = new Polyline();//Creates new polyline
+            plot.Stroke = new SolidColorBrush(plotColor);//Assigns the color
+            Point pointZero = new Point(0, zeroY);//Point at the origin
+            plot.Points.Add(pointZero);//Adds the zero point
+            plotsList.Add(plot);//Adds plot to the list of plots
+            graphCanvas.Children.Add(plotsList.Last());//Adds the last plot to canvas
+        }
+        public void Clear()//Clears all plots from the list
         {
-            xAccPlot.Points.Clear();
-            yAccPlot.Points.Clear();
-            zAccPlot.Points.Clear();
-            xGyroPlot.Points.Clear();
-            yGyroPlot.Points.Clear();
-            zGyroPlot.Points.Clear();
+            foreach(Polyline plot in plotsList)
+            {
+                plot.Points.Clear();
+            }
         }
 
-        public void AddPoints(IMUdata newPoints)
+        public void AddPoints(double[] newPoints)
         {
-            xAccPlot.Points.Add(new Point(axisX, zeroY - newPoints.DataIMU[0] * scaleAcc));//Acc X point
-            yAccPlot.Points.Add(new Point(axisX, zeroY - newPoints.DataIMU[1] * scaleAcc));//Acc Y point
-            zAccPlot.Points.Add(new Point(axisX, zeroY - newPoints.DataIMU[2] * scaleAcc));//Acc Z point
-            xGyroPlot.Points.Add(new Point(axisX, zeroY - newPoints.DataIMU[3] * scaleGyro));//Gyro X point
-            yGyroPlot.Points.Add(new Point(axisX, zeroY - newPoints.DataIMU[4] * scaleGyro));//Gyro Y point
-            zGyroPlot.Points.Add(new Point(axisX, zeroY - newPoints.DataIMU[5] * scaleGyro));//Gyro Z point
+            int k;
+            if(plotsList.Count() > newPoints.Length)
+            {
+                k = newPoints.Length;
+            }
+            else
+            {
+                k = plotsList.Count();
+            }
+            for(int i = 0; i < k; i++)
+            {
+                plotsList.ElementAt(i).Points.Add(new Point(axisX, zeroY - newPoints[i] * scale));
+            }
 
             graphCanvas.UpdateLayout();
             axisX += tickX;
@@ -141,12 +126,6 @@ namespace zZzBLEmonitor
             }
         }
 
-        // Adds the graphCanvas as a children to a StackPanel
-        public void AttachCanvas(StackPanel graphContainer)
-        {
-            graphContainer.Children.Add(graphCanvas);
-        }
-
         // Changes the size of the canvas to the size of the container
         public void ResizeCanvas(StackPanel graphContainer)
         {
@@ -155,8 +134,7 @@ namespace zZzBLEmonitor
             graphCanvas.UpdateLayout();
             zeroY = graphCanvas.ActualHeight / 2;//Setting Y zero at the center
             maxTickX = graphCanvas.ActualWidth;//Lenght of the X axis
-            scaleAcc = zeroY / 2000;
-            scaleGyro = zeroY / 250;
+            scale = zeroY / 180;
         }
     }
 }
