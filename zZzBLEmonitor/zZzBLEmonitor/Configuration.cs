@@ -19,7 +19,7 @@ namespace zZzBLEmonitor
         // IMU Service
         public readonly Guid BREATHINGSERVICE_UUID = new Guid(ZZZ_GUID_PREFIX + "1110" + ZZZ_GUID_SUFFIX);
         public readonly Guid BREATHING_UUID = new Guid(ZZZ_GUID_PREFIX + "1111" + ZZZ_GUID_SUFFIX);
-        public readonly Guid POSITION_UUID = new Guid(ZZZ_GUID_PREFIX + "1112" + ZZZ_GUID_SUFFIX);
+        public readonly Guid IMUWRITE_UUID = new Guid(ZZZ_GUID_PREFIX + "1112" + ZZZ_GUID_SUFFIX);
 
         public string Name
         {

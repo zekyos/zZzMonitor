@@ -48,6 +48,7 @@ namespace zZzBLEmonitor
         // Selected GATT Service
         private GattDeviceService selectedService;
         // Selected GATT Characteristic
+        private GattCharacteristic writeChar = null;
         private List<GattCharacteristic> selectedCharacteristic = new List<GattCharacteristic>();
         private bool IsValueChangedHandlerRegistered = false;
         // Graph
@@ -66,6 +67,21 @@ namespace zZzBLEmonitor
         bool busy = false;//flag for when the writing function is busy
         Int32 counter = 0;
         Stopwatch stopwatch = new Stopwatch();
+        //Timers
+        // For Data Acquisition
+        //public string folderName = null;// "Data Acquired";
+        //public string fileName = null;// "data-" + selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".temp";
+        //public string timeStamp = null;
+        public StorageFolder dataFolder = null;
+        public StorageFile dataFile = null;
+        DispatcherTimer timer = new DispatcherTimer();
+        int timesTicked = 0;
+        int sampling = 0;
+        public string rawData = "";
+        public string imuData = "";
+        public int flag1 = 0;
+        public int flag0 = 1;
+
         public Scenario1_Acquiring()
         {
             InitializeComponent();
@@ -98,6 +114,49 @@ namespace zZzBLEmonitor
         private async void searchDeviceButton_Click(object sender, RoutedEventArgs e)
         {
             this.Frame.Navigate(typeof(PairingPanel));
+        }
+
+        // >>> Timer
+        async void timer_Tick(object sender, object e)
+        {
+            //TimerLog.Text = "Timer running";
+            //if (flag0 == 0) return;
+            //flag0 = 0;
+            timesTicked++;
+            if ((rawData.Length >= 42))//Is there enough data for next sample?
+            {
+                string writeData = rawData.Substring(6, 36);//Extracts first set of measurements
+                rawData = rawData.Substring(42);//Eliminates read data from rawData
+                byte[] dataByte = new byte[writeData.Length / 2];//Converts to bytes
+                for (int i = 0; i < writeData.Length; i += 2)
+                {
+                    dataByte[i / 2] = Convert.ToByte(writeData.Substring(i, 2), 16);
+                }
+                // >>> Write over BLE
+                DataWriter writer = new DataWriter();
+                writer.WriteBytes(dataByte);
+                await writeChar.WriteValueAsync(writer.DetachBuffer());
+            }
+            else
+            {
+                timer.Stop();
+            }
+        }
+        /// <summary>
+        /// TimerSetUp: Initializes the Timer for both the initial count and the length of the study if there's a study length set.
+        /// </summary>
+        /// <returns></returns>
+        void TimerSetUp()
+        {
+            timer.Tick += timer_Tick;
+            timer.Interval = new TimeSpan(0, 0, 0, 0, 10);//Tick every 50ms
+            Debug.WriteLine("timer.IsEnabled = " + timer.IsEnabled + "\n");
+            Debug.WriteLine("Calling timer.Start()\n");
+            if (!timer.IsEnabled)
+            {
+                timer.Start();
+            }
+            Debug.WriteLine("timer.IsEnabled = " + timer.IsEnabled + "\n");
         }
 
         // -->> Connect to sensor <<--
@@ -137,7 +196,8 @@ namespace zZzBLEmonitor
                 {
                     // ERROR_DEVICE_NOT_AVAILABLE because the bluetooth radio is off
                 }
-
+                
+                // Device found!
                 if (sensorTagBLE != null)
                 {
                     GattDeviceServicesResult servicesResult = null;
@@ -153,16 +213,16 @@ namespace zZzBLEmonitor
                         rootPage.notifyFlyout(ex.Message, connectButton);
                     }
 
-                    //await dataService.Services.Single(s => s.Uuid == rootPage.COUNTER_SERVICE_UUID).GetCharacteristicsAsync();
                     if (servicesResult.Status == GattCommunicationStatus.Success)
                     {
                         selectedService = servicesResult.Services.Single();
                         Debug.WriteLine($"Service found: {selectedService.Uuid}");
                         try {
-                        
+
                             // Gets the Breathing characteristic
-                            characResult = await selectedService.GetCharacteristicsForUuidAsync(
-                                            BrService.BREATHING_UUID, BluetoothCacheMode.Uncached);
+                            characResult = await selectedService.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+                            //characResult = await selectedService.GetCharacteristicsForUuidAsync(
+                                                //BrService.BREATHING_UUID, BluetoothCacheMode.Uncached);
                         }
                         catch (Exception ex)
                         {
@@ -185,6 +245,22 @@ namespace zZzBLEmonitor
                             rootPage.fileName = "data-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".zZz";
                             rootPage.dataFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(rootPage.folderName, CreationCollisionOption.OpenIfExists);
                             rootPage.dataFile = await rootPage.dataFolder.CreateFileAsync(rootPage.fileName, CreationCollisionOption.ReplaceExisting);
+
+                            // >>> Data to read
+                            //var uri = new System.Uri("ms-appx:///imu_Supine_n31.txt");
+                            //fileTextBlock.Text = "ms-appx:///imu_Supine_n31.txt";
+                            //var uri = new System.Uri("ms-appx:///imu_Supine_n48.txt");
+                            //fileTextBlock.Text = "ms-appx:///imu_Supine_n48.txt";
+                            //var uri = new System.Uri("ms-appx:///imu_RightSide_n51.txt");
+                            //fileTextBlock.Text = "ms-appx:///imu_RightSide_n51.txt";
+                            //var uri = new System.Uri("ms-appx:///imu_Supine_n61.txt");
+                            //fileTextBlock.Text = "ms-appx:///imu_Supine_n61.txt";
+                            var uri = new System.Uri("ms-appx:///imu_RightSide_n63.txt");
+
+                            var file = await StorageFile.GetFileFromApplicationUriAsync(uri);
+                            rawData = await FileIO.ReadTextAsync(file);//Reads file
+                            int index = rawData.IndexOf("0D0A00");//Looks for the first end of transmission characters
+                            rawData = rawData.Substring(index);//Eliminates everything before first en of transmission
                         }
                         else
                         {
@@ -220,19 +296,33 @@ namespace zZzBLEmonitor
             {// Not registered to notifications
                 try
                 {
-                    GattCharacteristic characteristic = selectedCharacteristic.Last();
+
+                    GattCharacteristic charSubscribe = null;
+                    // Looks for the Breathing Characteristic
+                    foreach(GattCharacteristic characteristic in selectedCharacteristic)
+                    {
+                        if (characteristic.Uuid.Equals(BrService.BREATHING_UUID))
+                        {
+                            charSubscribe = characteristic;
+                        }else if (characteristic.Uuid.Equals(BrService.IMUWRITE_UUID))
+                        {
+                            writeChar = characteristic;
+                        }
+                    }
+
                     GattCommunicationStatus result =
-                    await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                    await charSubscribe.WriteClientCharacteristicConfigurationDescriptorAsync(
                         GattClientCharacteristicConfigurationDescriptorValue.Notify);
                     if (result == GattCommunicationStatus.Success)
                     {   
-                        characteristic.ValueChanged += Characteristic_ValueChanged;
+                        charSubscribe.ValueChanged += Characteristic_ValueChanged;
                         OnNewDataEnqueued += new ElementEnqueued(OnNewDataEnqueuedFxn);
                         OnNewPointsAdded += new PointsAdded(OnNewPointsAddedFxn);
                         IsValueChangedHandlerRegistered = true;
                         acquireButton.Label = "Stop";
                         acquireButton.Icon = new SymbolIcon(Symbol.Stop);
                         stopwatch.Start();
+                        TimerSetUp();
                     }
                     else
                     {
@@ -247,8 +337,17 @@ namespace zZzBLEmonitor
             }
             else
             {// Unregister for notifications
-                GattCharacteristic characteristic = selectedCharacteristic.Last();
-                characteristic.ValueChanged -= Characteristic_ValueChanged;
+                foreach (GattCharacteristic characteristic in selectedCharacteristic)
+                {
+                    if (characteristic.Uuid.Equals(BrService.BREATHING_UUID))
+                    {
+                        characteristic.ValueChanged -= Characteristic_ValueChanged;
+                    }
+                }
+                if (timer.IsEnabled)
+                {
+                    timer.Stop();
+                }
                 OnNewDataEnqueued -= OnNewDataEnqueuedFxn;
                 OnNewPointsAdded -= OnNewPointsAddedFxn;
                 IsValueChangedHandlerRegistered = false;
@@ -312,7 +411,7 @@ namespace zZzBLEmonitor
                         counter = 0;
                     }
                 }
-
+                flag0 = 1;
                 // Triggers queue event
                 if (OnNewDataEnqueued != null)
                 { OnNewDataEnqueued(this, EventArgs.Empty); }
@@ -361,7 +460,7 @@ namespace zZzBLEmonitor
                     thetaClass dequeued = null;
                     while (dataQueue.Count > 0)
                     {
-                        if (dataQueue.TryDequeue(out dequeued))//Dqueues new data
+                        if (dataQueue.TryDequeue(out dequeued))//Dequeues new data
                         {
                             dataTextBlock.Text = dequeued.StringTheta;
                             graph.AddPoints(dequeued.ThetaData);
@@ -371,6 +470,28 @@ namespace zZzBLEmonitor
                 });
 
         }
+        
+
+        // >>> Check this code for guidance in writing to the MCU
+        /*Boolean ledState = false;
+
+        private async void ledButton_Click()
+        {
+            var attributeInfoDisp = (BLEAttributeDisplay)characteristicsListView.SelectedItem;
+            selectedCharacteristic = attributeInfoDisp.characteristic;
+            var writer = new DataWriter();
+            if (ledState)
+            {// It's ON. Turn it OFF
+                writer.WriteByte((Byte)0x00);
+                ledState = false;
+            }
+            else
+            {// It's OFF. Turn it ON
+                writer.WriteByte((Byte)0x01);
+                ledState = true;
+            }
+            await selectedCharacteristic.WriteValueAsync(writer.DetachBuffer());
+        }/*
 
         /*private async void WriteToFile(string data)
         {
