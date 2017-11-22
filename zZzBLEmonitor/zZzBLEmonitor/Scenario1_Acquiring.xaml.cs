@@ -12,6 +12,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
+using Windows.Devices.SerialCommunication;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.UI;
@@ -66,6 +67,16 @@ namespace zZzBLEmonitor
         bool busy = false;//flag for when the writing function is busy
         Int32 counter = 0;
         Stopwatch stopwatch = new Stopwatch();
+        // >> Serial communication
+        public string beltData = "";
+        static string beltIdString = "USB#VID_0451&PID_BEF3&MI_00#6&3030f56c&0&0000#";
+        private SerialDevice beltSerialPort = null;
+        //private Collection<SerialDevice> serialPorts = new Collection<SerialDevice>();
+        DataReader beltDataReaderObject = null;
+        DataWriter beltDataWriteObject = null;
+        private ObservableCollection<DeviceInformation> listOfUartDevices;
+        private CancellationTokenSource ReadCancellationTokenSource;
+
         public Scenario1_Acquiring()
         {
             InitializeComponent();
@@ -86,6 +97,8 @@ namespace zZzBLEmonitor
             {
                 nameDeviceConnected.Text = $"Device: {rootPage.selectedDeviceName}";
                 connectButton.IsEnabled = true;
+                listOfUartDevices = new ObservableCollection<DeviceInformation>();
+                ListAvailableUartPorts();
             }
             else
             {
@@ -93,6 +106,52 @@ namespace zZzBLEmonitor
                 connectButton.IsEnabled = false;
             }
         }
+
+        // -->> Looks for UART devices connected <<--
+        //_________________________________________
+        private async void ListAvailableUartPorts()
+        {
+            try
+            {
+                string aqs = SerialDevice.GetDeviceSelector();
+                var dis = await DeviceInformation.FindAllAsync(aqs);
+
+                foreach(DeviceInformation port in dis)
+                {
+                    if (port.Id.Contains(beltIdString))
+                    {
+                        listOfUartDevices.Add(port);
+                        Debug.WriteLine(port.Id + "added");
+                    }
+                }
+                if(listOfUartDevices.Count != 0)
+                {
+                    beltSerialPort = await SerialDevice.FromIdAsync(listOfUartDevices.Last().Id);
+                    if (beltSerialPort == null) return;
+                    beltDataWriteObject = new DataWriter(beltSerialPort.OutputStream);
+                    // Configure serial settings
+                    beltSerialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
+                    beltSerialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
+                    beltSerialPort.BaudRate = 9600;
+                    beltSerialPort.Parity = SerialParity.None;
+                    beltSerialPort.StopBits = SerialStopBitCount.One;
+                    beltSerialPort.DataBits = 8;
+                    beltSerialPort.Handshake = SerialHandshake.None;
+                    // Create cancellation token object to close I/O operations when closing the device
+                    ReadCancellationTokenSource = new CancellationTokenSource();
+                    rootPage.notifyFlyout("UART ready", connectButton);
+                }
+                else
+                {
+                    rootPage.notifyFlyout("No UART device found", connectButton);
+                }
+            }
+            catch (Exception ex)
+            {
+                rootPage.notifyFlyout("Problems loading UART:" + ex.Message, connectButton);
+            }
+        }
+
         // -->> Search BLE Sensor: Click Event <<--
         //_________________________________________
         private async void searchDeviceButton_Click(object sender, RoutedEventArgs e)
@@ -233,6 +292,8 @@ namespace zZzBLEmonitor
                         acquireButton.Label = "Stop";
                         acquireButton.Icon = new SymbolIcon(Symbol.Stop);
                         stopwatch.Start();
+                        await WriteAsync(beltDataWriteObject, "s");
+                        BeltListen();
                     }
                     else
                     {
@@ -251,6 +312,10 @@ namespace zZzBLEmonitor
                 characteristic.ValueChanged -= Characteristic_ValueChanged;
                 OnNewDataEnqueued -= OnNewDataEnqueuedFxn;
                 OnNewPointsAdded -= OnNewPointsAddedFxn;
+                await WriteAsync(beltDataWriteObject, "t");//Stops belt MCU 
+                CancelReadTask();
+                CloseDevice();
+                listOfUartDevices.Clear();
                 IsValueChangedHandlerRegistered = false;
                 acquireButton.Label = "Acquire";
                 acquireButton.Icon = new FontIcon { Glyph = "\uE9D9" };
@@ -372,6 +437,137 @@ namespace zZzBLEmonitor
 
         }
 
+        /// <summary>
+        /// WriteAsync: Task that asynchronously writes data from the input text box 'sendText' to the OutputStream 
+        /// </summary>
+        /// <returns></returns>
+        private async Task WriteAsync(DataWriter dataWriteObject, string command)
+        {
+            Task<UInt32> storeAsyncTask;
+
+            if (command.Length != 0)
+            {
+                // Load the text from the sendText input text box to the dataWriter object
+                dataWriteObject.WriteString(command);
+
+                // Launch an async task to complete the write operation
+                storeAsyncTask = dataWriteObject.StoreAsync().AsTask();
+
+                UInt32 bytesWritten = await storeAsyncTask;
+                if (bytesWritten > 0)
+                {
+                    //Writing succesful
+                }
+            }
+        }
+
+        /// <summary>
+        /// - Create a DataReader object
+        /// - Create an async task to read from the SerialDevice InputStream
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void BeltListen()
+        {
+            try
+            {
+                if (beltSerialPort != null)
+                {
+                    beltDataReaderObject = new DataReader(beltSerialPort.InputStream);
+
+                    // keep reading the serial input
+                    var trash = beltSerialPort.InputStream;
+                    while (true)
+                    {
+                        await BeltReadAsync(ReadCancellationTokenSource.Token);
+                    }
+                }
+            }
+            catch (TaskCanceledException tce)
+            {
+                //status.Text = "Reading task was cancelled, closing device and cleaning up";
+                CloseDevice();
+            }
+            catch (Exception ex)
+            {
+                rootPage.notifyFlyout("Error listening to UART:" + ex.Message, acquireButton);
+            }
+            finally
+            {
+                // Cleanup once complete
+                if (beltDataReaderObject != null)
+                {
+                    beltDataReaderObject.DetachStream();
+                    beltDataReaderObject = null; ;
+                }
+            }
+        }
+
+        /// <summary>
+        /// ReadAsync: Task that waits on data and reads asynchronously from the serial device InputStream
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        private async Task BeltReadAsync(CancellationToken cancellationToken)
+        {
+            Task<UInt32> beltLoadAsyncTask;
+
+            uint ReadBufferLength = 1024;
+
+            // If task cancellation was requested, comply
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Set InputStreamOptions to complete the asynchronous read operation when one or more bytes is available
+            beltDataReaderObject.InputStreamOptions = InputStreamOptions.Partial;
+
+            using (var childCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                // Create a task object to wait for data on the serialPort.InputStream
+                beltLoadAsyncTask = beltDataReaderObject.LoadAsync(ReadBufferLength).AsTask(childCancellationTokenSource.Token);
+
+                // Launch the task and wait
+                UInt32 bytesRead = await beltLoadAsyncTask;
+                if (bytesRead > 0)
+                {
+                    byte[] newValue = new byte[bytesRead];
+                    beltDataReaderObject.ReadBytes(newValue);
+                    string hex = BitConverter.ToString(newValue).Replace("-", "");
+                    beltData += hex;
+                    //status.Text = "bytes read successfully!";
+                }
+            }
+        }
+
+        /// <summary>
+        /// CancelReadTask:
+        /// - Uses the ReadCancellationTokenSource to cancel read operations
+        /// </summary>
+        private void CancelReadTask()
+        {
+            if (ReadCancellationTokenSource != null)
+            {
+                if (!ReadCancellationTokenSource.IsCancellationRequested)
+                {
+                    ReadCancellationTokenSource.Cancel();
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// CloseDevice:
+        /// - Disposes SerialDevice object
+        /// - Clears the enumerated device Id list
+        /// </summary>
+        private void CloseDevice()
+        {
+            if (beltSerialPort != null)
+            {
+                beltSerialPort.Dispose();
+            }
+            beltSerialPort = null;
+            listOfUartDevices.Clear();
+        }
         /*private async void WriteToFile(string data)
         {
             lock (fileLock)
