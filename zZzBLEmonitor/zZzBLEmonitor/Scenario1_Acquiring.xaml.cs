@@ -69,9 +69,9 @@ namespace zZzBLEmonitor
         Stopwatch stopwatch = new Stopwatch();
         // >> Serial communication
         public string beltData = "";
+        public string imuData = "";
         static string beltIdString = "USB#VID_0451&PID_BEF3&MI_00#6&3030f56c&0&0000#";
         private SerialDevice beltSerialPort = null;
-        //private Collection<SerialDevice> serialPorts = new Collection<SerialDevice>();
         DataReader beltDataReaderObject = null;
         DataWriter beltDataWriteObject = null;
         private ObservableCollection<DeviceInformation> listOfUartDevices;
@@ -127,19 +127,38 @@ namespace zZzBLEmonitor
                 if(listOfUartDevices.Count != 0)
                 {
                     beltSerialPort = await SerialDevice.FromIdAsync(listOfUartDevices.Last().Id);
-                    if (beltSerialPort == null) return;
-                    beltDataWriteObject = new DataWriter(beltSerialPort.OutputStream);
-                    // Configure serial settings
-                    beltSerialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
-                    beltSerialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
-                    beltSerialPort.BaudRate = 9600;
-                    beltSerialPort.Parity = SerialParity.None;
-                    beltSerialPort.StopBits = SerialStopBitCount.One;
-                    beltSerialPort.DataBits = 8;
-                    beltSerialPort.Handshake = SerialHandshake.None;
-                    // Create cancellation token object to close I/O operations when closing the device
-                    ReadCancellationTokenSource = new CancellationTokenSource();
-                    rootPage.notifyFlyout("UART ready", connectButton);
+                    var IsNull = true;
+                    int counter = 0;
+                    do
+                    {
+                        if (beltSerialPort != null)
+                        {
+                            IsNull = false;
+                        }
+                        if (counter > 100)
+                            break;
+                        counter++;
+                    } while (IsNull == true);
+                    
+                    if (IsNull != true)
+                    {
+                        beltDataWriteObject = new DataWriter(beltSerialPort.OutputStream);
+                        // Configure serial settings
+                        beltSerialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
+                        beltSerialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
+                        beltSerialPort.BaudRate = 9600;
+                        beltSerialPort.Parity = SerialParity.None;
+                        beltSerialPort.StopBits = SerialStopBitCount.One;
+                        beltSerialPort.DataBits = 8;
+                        beltSerialPort.Handshake = SerialHandshake.None;
+                        // Create cancellation token object to close I/O operations when closing the device
+                        ReadCancellationTokenSource = new CancellationTokenSource();
+                        rootPage.notifyFlyout("UART ready", connectButton);
+                    }
+                    else
+                    {
+                        rootPage.notifyFlyout("Couldn't connect to UART device",connectButton);
+                    }
                 }
                 else
                 {
@@ -531,9 +550,11 @@ namespace zZzBLEmonitor
                 {
                     byte[] newValue = new byte[bytesRead];
                     beltDataReaderObject.ReadBytes(newValue);
-                    string hex = BitConverter.ToString(newValue).Replace("-", "");
-                    beltData += hex;
-                    //status.Text = "bytes read successfully!";
+                    newValue[2] = newValue[0];
+                    UInt16 belt = BitConverter.ToUInt16(newValue,1);
+                    beltData += belt.ToString() + "\n";
+                    //string hex = BitConverter.ToString(newValue).Replace("-", "");
+                    //beltData += hex;
                 }
             }
         }
