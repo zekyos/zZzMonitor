@@ -42,8 +42,10 @@
                     </TextBlock>
                 </CommandBar.Content>
             </CommandBar>
-
-            <StackPanel x:Name="graphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Bisque"/>
+            <StackPanel Orientation="Vertical">
+                <StackPanel x:Name="graphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Bisque"/>
+                <StackPanel x:Name="refGraphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Aqua"/>
+            </StackPanel>
 
             <TextBlock x:Name="dataTextBlock"/>
             <TextBlock x:Name="counterTextBlock"/>

@@ -53,18 +53,9 @@ namespace zZzBLEmonitor
         private bool IsValueChangedHandlerRegistered = false;
         // Graph
         private GraphClass graph = new GraphClass();
+        private GraphClass refGraph = new GraphClass();
         // Data files names
         public string timeStamp = null;
-        // New Data Enqueued Event
-        ConcurrentQueue<thetaClass> dataQueue = new ConcurrentQueue<thetaClass>();
-        ConcurrentQueue<thetaClass> plotQueue = new ConcurrentQueue<thetaClass>();
-        public delegate void ElementEnqueued(object sender, EventArgs e);
-        public event ElementEnqueued OnNewDataEnqueued;
-        // New Points Added Event
-        public delegate void PointsAdded(object sender, EventArgs e);
-        public event PointsAdded OnNewPointsAdded;
-        //public event 
-        bool busy = false;//flag for when the writing function is busy
         Int32 counter = 0;
         Stopwatch stopwatch = new Stopwatch();
         // >> Serial communication
@@ -184,12 +175,17 @@ namespace zZzBLEmonitor
         private async void connectButton_Click(object sender, RoutedEventArgs e)
         {
             connectButton.IsEnabled = false;
+            // IMU graph
             graph.Initialize(graphStackPanel, 1);
             graph.Background(Colors.WhiteSmoke);
             graph.AddPlot(Colors.Red);
             graph.AddPlot(Colors.Blue);
             graph.AddPlot(Colors.LimeGreen);
             graph.AddPlot(Colors.DarkOrange);
+            // Belt graph
+            refGraph.Initialize(refGraphStackPanel, 1);
+            refGraph.Background(Colors.Black);
+            refGraph.AddPlot(Colors.PaleVioletRed);
             rootPage.ShowProgressRing(connectingProgressRing, true);
             if (IsValueChangedHandlerRegistered)
             {// Reconnecting
@@ -198,7 +194,6 @@ namespace zZzBLEmonitor
                 {
                     characteristic.ValueChanged -= Characteristic_ValueChanged;
                 }
-                OnNewDataEnqueued -= OnNewDataEnqueuedFxn;
                 IsValueChangedHandlerRegistered = false;
                 acquireButton.Label = "Acquire";
                 acquireButton.Icon = new FontIcon { Glyph = "\uE9D9" };
@@ -302,8 +297,6 @@ namespace zZzBLEmonitor
                     if (result == GattCommunicationStatus.Success)
                     {
                         characteristic.ValueChanged += Characteristic_ValueChanged;
-                        OnNewDataEnqueued += new ElementEnqueued(OnNewDataEnqueuedFxn);
-                        OnNewPointsAdded += new PointsAdded(OnNewPointsAddedFxn);
                         IsValueChangedHandlerRegistered = true;
                         acquireButton.Label = "Stop";
                         acquireButton.Icon = new SymbolIcon(Symbol.Stop);
@@ -326,8 +319,6 @@ namespace zZzBLEmonitor
             {// Unregister for notifications
                 GattCharacteristic characteristic = selectedCharacteristic.Last();
                 characteristic.ValueChanged -= Characteristic_ValueChanged;
-                //OnNewDataEnqueued -= OnNewDataEnqueuedFxn;
-                OnNewPointsAdded -= OnNewPointsAddedFxn;
                 await WriteAsync(beltDataWriteObject, "t");//Stops belt MCU 
                 CancelReadTask();
                 CloseDevice();
@@ -389,22 +380,18 @@ namespace zZzBLEmonitor
                     if (counter >= 3)
                     {
                         imuData += position.ToString() + "\n";
-                        thetaClass newTetha = new thetaClass();
-                        newTetha.ThetaData = newData;
-                        newTetha.Position = position;
-                        dataQueue.Enqueue(newTetha);
-                        //plotQueue.Enqueue(newTetha);
+                        double[] temp = new double[4];
+                        for (int j = 0; j < 3; j++)
+                            temp[j] = newData[j];
+                        temp[3] = (double)position;
+                        await Dispatcher.RunAsync(CoreDispatcherPriority.Normal,
+                        () =>
+                        {
+                            graph.AddPoints(temp);
+                        });
                         counter = 0;
                     }
                 }
-
-                // Triggers queue event
-                /*if (OnNewDataEnqueued != null)
-                { OnNewDataEnqueued(this, EventArgs.Empty); }*/
-
-                //Fires graph refresh event
-                if (OnNewPointsAdded != null)
-                { OnNewPointsAdded(this, EventArgs.Empty); }
             }
             //Check for other services sending data...
         }
@@ -439,54 +426,6 @@ namespace zZzBLEmonitor
             {
                 rootPage.notifyFlyout("Error writing data: " + ex.Message, acquireButton);
             }
-        }
-
-        // -->> Writes the new data to a file <<--
-        //________________________________________
-        private async void OnNewDataEnqueuedFxn(object sender, EventArgs e)
-        {
-            int counter = 0;
-            while (busy || counter < 200)//Waits for another writing operation to complete
-            { counter++; }
-            if (!busy)
-            {//Writes to file
-                busy = true;//Sets busy flag
-                thetaClass dequeued = null;
-                while (dataQueue.Count > 0)
-                {
-                    if (dataQueue.TryDequeue(out dequeued))//Dqueues new data
-                    { await FileIO.AppendTextAsync(rootPage.dataFile, dequeued.StringTheta); }
-                }
-                busy = false;//Releases flag
-            }
-            else
-            {//Failed to write to file
-                rootPage.notifyFlyout("Reached max number of iterations", connectButton);
-            }
-
-        }
-
-        // -->> Refreshes UI and Graph <<--
-        //_________________________________
-        private async void OnNewPointsAddedFxn(object sender, EventArgs e)
-        {// Updates the UI and the graph
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal,
-                () =>
-                {
-                    counter += 6;
-                    counterTextBlock.Text = counter.ToString();
-                    thetaClass dequeued = null;
-                    while (dataQueue.Count > 0)
-                    {
-                        if (dataQueue.TryDequeue(out dequeued))//Dqueues new data
-                        {
-                            dataTextBlock.Text = dequeued.StringTheta;
-                            graph.AddPoints(dequeued.ThetaData);
-                        }
-                    }
-                    timerTextBlock.Text = Convert.ToString(stopwatch.Elapsed);
-                });
-
         }
 
         /// <summary>
@@ -586,8 +525,9 @@ namespace zZzBLEmonitor
                     newValue[2] = newValue[0];
                     UInt16 belt = BitConverter.ToUInt16(newValue, 1);
                     beltData += belt.ToString() + "\n";
-                    //string hex = BitConverter.ToString(newValue).Replace("-", "");
-                    //beltData += hex;
+                    double[] temp = new double[1];
+                    temp[0] = ((double)(belt - 4000)) * 0.01;
+                    refGraph.AddPoints(temp);
                 }
             }
         }
