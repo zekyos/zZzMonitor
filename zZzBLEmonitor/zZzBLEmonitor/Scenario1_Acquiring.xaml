@@ -21,6 +21,12 @@
     <Grid x:Name="mainGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <StackPanel>
             <CommandBar x:Name="commandBar" DefaultLabelPosition="Right">
+                <AppBarButton x:Name="recordButton" Label="Record" Visibility="Collapsed"
+                              Click="recordButton_Click">
+                    <AppBarButton.Icon>
+                        <FontIcon Glyph="&#xE7C8;"/>
+                    </AppBarButton.Icon>
+                </AppBarButton>
                 <AppBarButton x:Name="connectButton" Label="Connect"
                               Click="connectButton_Click">
                     <AppBarButton.Icon>
@@ -42,17 +48,20 @@
                     </TextBlock>
                 </CommandBar.Content>
             </CommandBar>
-            <StackPanel Orientation="Vertical">
-                <StackPanel x:Name="graphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Bisque"/>
-                <StackPanel x:Name="refGraphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Aqua"/>
-            </StackPanel>
-
-            <TextBlock x:Name="dataTextBlock"/>
-            <TextBlock x:Name="counterTextBlock"/>
-            <TextBlock x:Name="timerTextBlock"/>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Position"/>
-                <TextBlock x:Name="positionTextBlock"/>
+            <StackPanel Orientation="Horizontal" >
+                <StackPanel Margin="10 0 10 0" Width="200">
+                    <TextBlock x:Name="dataTextBlock"/>
+                    <TextBlock x:Name="counterTextBlock"/>
+                    <TextBlock x:Name="timerTextBlock"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Position"/>
+                        <TextBlock x:Name="positionTextBlock"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
+                    <StackPanel x:Name="graphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Bisque"/>
+                    <StackPanel x:Name="refGraphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Aqua"/>
+                </StackPanel>
             </StackPanel>
         </StackPanel>
         <ProgressRing x:Name="connectingProgressRing" Foreground="Black" Width="100" Height="100"

@@ -58,6 +58,7 @@ namespace zZzBLEmonitor
         public string timeStamp = null;
         Int32 counter = 0;
         Stopwatch stopwatch = new Stopwatch();
+        public int record = 0;//If active, starts to record data to the Strings
         // >> Serial communication
         public string beltData = "";
         public string imuData = "";
@@ -184,8 +185,8 @@ namespace zZzBLEmonitor
             graph.AddPlot(Colors.DarkOrange);
             // Belt graph
             refGraph.Initialize(refGraphStackPanel, 1);
-            refGraph.Background(Colors.Black);
-            refGraph.AddPlot(Colors.PaleVioletRed);
+            refGraph.Background(Colors.White);
+            refGraph.AddPlot(Colors.Black);
             rootPage.ShowProgressRing(connectingProgressRing, true);
             if (IsValueChangedHandlerRegistered)
             {// Reconnecting
@@ -296,11 +297,13 @@ namespace zZzBLEmonitor
                         GattClientCharacteristicConfigurationDescriptorValue.Notify);
                     if (result == GattCommunicationStatus.Success)
                     {
-                        characteristic.ValueChanged += Characteristic_ValueChanged;
-                        IsValueChangedHandlerRegistered = true;
+                        // Updates the GUI
                         acquireButton.Label = "Stop";
                         acquireButton.Icon = new SymbolIcon(Symbol.Stop);
-                        stopwatch.Start();
+                        recordButton.Visibility = Visibility.Visible;
+                        // Starts to read the sensors
+                        characteristic.ValueChanged += Characteristic_ValueChanged;
+                        IsValueChangedHandlerRegistered = true;
                         await WriteAsync(beltDataWriteObject, "s");
                         BeltListen();
                     }
@@ -324,7 +327,10 @@ namespace zZzBLEmonitor
                 CloseDevice();
                 listOfUartDevices.Clear();
                 WriteDataToFile();
+                record = 0;
                 IsValueChangedHandlerRegistered = false;
+                recordButton.Visibility = Visibility.Collapsed;
+                recordButton.Icon = new FontIcon { Glyph = "\uE7C8" };
                 acquireButton.Label = "Acquire";
                 acquireButton.Icon = new FontIcon { Glyph = "\uE9D9" };
             }
@@ -357,6 +363,7 @@ namespace zZzBLEmonitor
         private async void Characteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
             // BT_Code: An Indicate or Notify reported that the value has changed.
+            string tempStr = "";
             byte[] newValue;//Stores the byte arraw
             //Reads the BLE buffer and stores its content into the newValue array
             CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out newValue);
@@ -374,12 +381,15 @@ namespace zZzBLEmonitor
                 for (int i = 0; i < 18; i++)
                 {//Getting angles
                     tmp0 = unchecked((sbyte)newValue[i]);
-                    imuData += tmp0.ToString() + ",";
+                    tempStr += tmp0.ToString() + ",";
                     newData[counter] = (tmp0 * 360) / 256;
                     counter++;
                     if (counter >= 3)
                     {
-                        imuData += position.ToString() + "\n";
+                        tempStr += position.ToString() + "\n";
+                        if (record == 1)//Recording?
+                            imuData += tempStr;//Save to file
+
                         double[] temp = new double[4];
                         for (int j = 0; j < 3; j++)
                             temp[j] = newData[j];
@@ -387,11 +397,40 @@ namespace zZzBLEmonitor
                         await Dispatcher.RunAsync(CoreDispatcherPriority.Normal,
                         () =>
                         {
+                            temp[1] *= 2;
                             graph.AddPoints(temp);
                         });
                         counter = 0;
                     }
                 }
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal,
+                () =>
+                {
+                    timerTextBlock.Text = Convert.ToString(stopwatch.Elapsed);
+                    string positionStr = "";
+                    switch (position)
+                    {
+                        case 2:
+                            positionStr = "Prone";
+                            break;
+                        case 1:
+                            positionStr = "Vertical";
+                            break;
+                        case 0:
+                            positionStr = "Supine";
+                            break;
+                        case -1:
+                            positionStr = "Left Lat.Rec.";
+                            break;
+                        case -2:
+                            positionStr = "Right Lat. Rec.";
+                            break;
+                        default:
+                            positionStr = "ERROR";
+                            break;
+                    }
+                    positionTextBlock.Text = positionStr;
+                });
             }
             //Check for other services sending data...
         }
@@ -445,9 +484,10 @@ namespace zZzBLEmonitor
                 storeAsyncTask = dataWriteObject.StoreAsync().AsTask();
 
                 UInt32 bytesWritten = await storeAsyncTask;
-                if (bytesWritten > 0)
+                if (bytesWritten <= 0)
                 {
-                    //Writing succesful
+                    //Writing unsuccesful
+                    rootPage.notifyFlyout("UART write failed", acquireButton);
                 }
             }
         }
@@ -524,7 +564,8 @@ namespace zZzBLEmonitor
                     beltDataReaderObject.ReadBytes(newValue);
                     newValue[2] = newValue[0];
                     UInt16 belt = BitConverter.ToUInt16(newValue, 1);
-                    beltData += belt.ToString() + "\n";
+                    if (record == 1)
+                        beltData += belt.ToString() + "\n";
                     double[] temp = new double[1];
                     temp[0] = ((double)(belt - 4000)) * 0.01;
                     refGraph.AddPoints(temp);
@@ -561,6 +602,22 @@ namespace zZzBLEmonitor
             }
             beltSerialPort = null;
             listOfUartDevices.Clear();
+        }
+
+        /// <summary>
+        /// recordButton_Click:
+        /// - Changes the value of the record flag, and the data starts to be 
+        /// recorded in their respectives strings
+        /// - The record button is Disabled, and record will stop when Acquiring data
+        /// stops (at this point the acquireButton displays the Stop symbol)
+        /// - A stopwatch is also started at this point
+        /// </summary>
+        private void recordButton_Click(object sender, RoutedEventArgs e)
+        {
+            recordButton.Icon = new SymbolIcon(Symbol.Target);
+            recordButton.IsEnabled = false;
+            stopwatch.Start();
+            record = 1;
         }
     }
 }
