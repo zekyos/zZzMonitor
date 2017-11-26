@@ -185,8 +185,8 @@ namespace zZzBLEmonitor
             graph.AddPlot(Colors.DarkOrange);
             // Belt graph
             refGraph.Initialize(refGraphStackPanel, 1);
-            refGraph.Background(Colors.White);
-            refGraph.AddPlot(Colors.Black);
+            refGraph.Background(Colors.Black);
+            refGraph.AddPlot(Colors.White);
             rootPage.ShowProgressRing(connectingProgressRing, true);
             if (IsValueChangedHandlerRegistered)
             {// Reconnecting
@@ -326,7 +326,8 @@ namespace zZzBLEmonitor
                 CancelReadTask();
                 CloseDevice();
                 listOfUartDevices.Clear();
-                WriteDataToFile();
+                if (record == 1)
+                    WriteDataToFile();
                 record = 0;
                 IsValueChangedHandlerRegistered = false;
                 recordButton.Visibility = Visibility.Collapsed;
@@ -442,6 +443,7 @@ namespace zZzBLEmonitor
         /// 
         private async void WriteDataToFile()
         {
+
             rootPage.folderName = "Data Acquired";
             rootPage.fileName = "bleData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
             string beltFileName = "refData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
@@ -461,7 +463,7 @@ namespace zZzBLEmonitor
                 imuData = "";
                 beltData = "";
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 rootPage.notifyFlyout("Error writing data: " + ex.Message, acquireButton);
             }
@@ -567,7 +569,7 @@ namespace zZzBLEmonitor
                     if (record == 1)
                         beltData += belt.ToString() + "\n";
                     double[] temp = new double[1];
-                    temp[0] = ((double)(belt - 4000)) * 0.01;
+                    temp[0] = (double)(belt - 33032) * 0.05;
                     refGraph.AddPoints(temp);
                 }
             }
