@@ -390,7 +390,7 @@ namespace zZzBLEmonitor
                         tempStr += position.ToString() + "\n";
                         if (record == 1)//Recording?
                             imuData += tempStr;//Save to file
-
+                        tempStr = "";//Resets tempStr
                         double[] temp = new double[4];
                         for (int j = 0; j < 3; j++)
                             temp[j] = newData[j];
