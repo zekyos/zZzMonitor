@@ -18,8 +18,8 @@ namespace zZzBLEmonitor
         const string ZZZ_GUID_SUFFIX = "-07E1-4000-E7C7-BD31071482B7";
         // IMU Service
         public readonly Guid BREATHINGSERVICE_UUID = new Guid(ZZZ_GUID_PREFIX + "1110" + ZZZ_GUID_SUFFIX);
-        public readonly Guid BREATHING_UUID = new Guid(ZZZ_GUID_PREFIX + "1111" + ZZZ_GUID_SUFFIX);
-        public readonly Guid POSITION_UUID = new Guid(ZZZ_GUID_PREFIX + "1112" + ZZZ_GUID_SUFFIX);
+        public readonly Guid DEVICE_1_UUID = new Guid(ZZZ_GUID_PREFIX + "1111" + ZZZ_GUID_SUFFIX);
+        public readonly Guid DEVICE_2_UUID = new Guid(ZZZ_GUID_PREFIX + "1112" + ZZZ_GUID_SUFFIX);
 
         public string Name
         {
@@ -37,8 +37,12 @@ namespace zZzBLEmonitor
 
     public partial class MainPage : Page
     {
-        public string selectedDeviceId = null;
-        public string selectedDeviceName = null;
+        public List<string> bleDeviceId = new List<string>();
+        public List<string> bleDeviceName = new List<string>();
+        public string ble1DeviceId = null;
+        public string ble1DeviceName = null;
+        public string ble2DeviceId = null;
+        public string ble2DeviceName = null;
 
         // For Data Acquisition
         public string folderName = null;// "Data Acquired";

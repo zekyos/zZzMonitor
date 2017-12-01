@@ -66,28 +66,49 @@ namespace zZzBLEmonitor
         //____________________________________________
         private async void devicesListView_SelectionChanged(object sender, RoutedEventArgs e)
         {
-            DeviceInformationDisplay deviceInfoDisp = devicesListView.SelectedItem as DeviceInformationDisplay;
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
+            if (devicesListView.SelectedItems.Count() > 2)
             {
-                if (deviceInfoDisp != null)
+                devicesListView.SelectedItems.Remove(devicesListView.SelectedItems.Last());
+            }
+            else if (devicesListView.SelectedItems.Count() == 2)
+            {
+                List<DeviceInformationDisplay> devicesInfoDisp = new List<DeviceInformationDisplay>();
+                int c = 0;
+                foreach (var device in devicesListView.SelectedItems)
+                {
+                    DeviceInformationDisplay tempDevice = device as DeviceInformationDisplay;
+                    if (!tempDevice.IsPaired)
+                    {
+                        devicesListView.SelectedItems.Clear();
+                        devicesListView.SelectedItem = device;
+                    }
+                    devicesInfoDisp.Add(tempDevice);
+                    c++;
+                }
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
                 {
                     pairingCommandBar.Background = (SolidColorBrush)Application.Current.Resources["CommandBarBackground"];
-                    if (deviceInfoDisp.IsPaired)
+                    foreach (DeviceInformationDisplay device in devicesInfoDisp)
                     {
-                        pairingStatusTextBlock.Text = $"{deviceInfoDisp.Name} is already paired. You can connect to this device.";
-                        pairButton.Label = "Unpair";
-                        pairButton.Icon = new SymbolIcon(Symbol.Clear);
-                        rootPage.selectedDeviceId = deviceInfoDisp.Id;
-                        rootPage.selectedDeviceName = deviceInfoDisp.Name;
+                        if (!device.IsPaired) // Device is not paired
+                        {
+                            pairingStatusTextBlock.Text = $"{device.Name} is not paired.";
+                            pairButton.Label = "Pair";
+                            pairButton.Icon = new SymbolIcon(Symbol.Add);
+                            return;
+                        }
                     }
-                    else
+                    // If the 2 devices are paired, proceed
+                    pairingStatusTextBlock.Text = $"Devices are already paired. You can connect.";
+                    pairButton.Label = "Unpair";
+                    pairButton.Icon = new SymbolIcon(Symbol.Clear);
+                    foreach(DeviceInformationDisplay device in devicesInfoDisp)
                     {
-                        pairingStatusTextBlock.Text = $"{deviceInfoDisp.Name} is not paired.";
-                        pairButton.Label = "Pair";
-                        pairButton.Icon = new SymbolIcon(Symbol.Add);
+                        rootPage.bleDeviceId.Add(device.Id);
+                        rootPage.bleDeviceName.Add(device.Name);
                     }
-                }
-            });
+                });
+            }
         }
 
         // Rescan Button: Click Event
@@ -316,8 +337,8 @@ namespace zZzBLEmonitor
                         pairButton.Icon = new SymbolIcon(Symbol.Clear);
 
                         // Saving the Device ID and Name for future use
-                        rootPage.selectedDeviceId = deviceInfoSelected.Id;
-                        rootPage.selectedDeviceName = deviceInfoSelected.Name;
+                        rootPage.ble1DeviceId = deviceInfoSelected.Id;
+                        rootPage.ble1DeviceName = deviceInfoSelected.Name;
                     }
                 }
                 else if (deviceInfoSelected.IsPaired) // Else, device is already paired
@@ -336,8 +357,8 @@ namespace zZzBLEmonitor
                             pairingStatusTextBlock.Text = $"{deviceInfoSelected.Name} unpaired successfully";
                             pairingCommandBar.Background = new SolidColorBrush(Colors.LightGreen);
                             pairButton.Content = "Pair/Unpair Device";
-                            rootPage.selectedDeviceId = null;
-                            rootPage.selectedDeviceName = null;
+                            rootPage.ble1DeviceId = null;
+                            rootPage.ble1DeviceName = null;
                             break;
                         case DeviceUnpairingResultStatus.AccessDenied:// Permission denied
                             pairingStatusTextBlock.Text = "Operation cancelled by the user";
@@ -420,6 +441,11 @@ namespace zZzBLEmonitor
                     });*/
                     break;
             }
+        }
+
+        private void clearSelButton_Click(object sender, RoutedEventArgs e)
+        {
+            devicesListView.SelectedItems.Clear();
         }
     }
 }

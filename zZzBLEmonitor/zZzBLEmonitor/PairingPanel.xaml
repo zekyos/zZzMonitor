@@ -50,7 +50,7 @@
         </Grid.RowDefinitions>
         <StackPanel Orientation="Vertical" Grid.Row="0" Margin="0,0,0,10">
             <TextBlock Text="Device Selection" FontSize="40" FontWeight="SemiBold"/>
-            <TextBlock Text="Selected a paired device from the list to connect to." FontSize="20"/>
+            <TextBlock Text="Selected 2 paired devices from the list to connect to." FontSize="20"/>
             <TextBlock Text="If the device you are looking for is not paired, please pair the device first." FontSize="20"/>
         </StackPanel>
         <StackPanel x:Name="scrollStackPanel" Grid.Row="1">
@@ -62,10 +62,12 @@
                           VerticalAlignment="Top"
                           SelectionChanged="devicesListView_SelectionChanged"
                           ItemTemplate="{StaticResource ResultsListViewTemplate}"
-                         ItemsSource="{x:Bind ResultCollection}">
+                         ItemsSource="{x:Bind ResultCollection}"
+                              SelectionMode="Multiple">
                     </ListView>
                 </StackPanel>
             </ScrollViewer>
+            <Button x:Name="clearSelButton" Click="clearSelButton_Click">Clear Selections</Button>
         </StackPanel>
         <CommandBar Grid.Row="2" x:Name="pairingCommandBar" DefaultLabelPosition="Right" HorizontalAlignment="Stretch" Margin="0,10,0,0">
             <AppBarButton x:Name="pairButton" IsCompact="False" Icon="Add" Label="Pair" Click="pairButton_Click"/>

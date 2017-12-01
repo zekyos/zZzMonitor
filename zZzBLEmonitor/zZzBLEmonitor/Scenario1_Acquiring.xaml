@@ -49,18 +49,27 @@
                 </CommandBar.Content>
             </CommandBar>
             <StackPanel Orientation="Horizontal" >
-                <StackPanel Margin="10 0 10 0" Width="200">
+                <StackPanel Margin="10 0 10 0" Width="300">
                     <TextBlock x:Name="dataTextBlock"/>
                     <TextBlock x:Name="counterTextBlock"/>
                     <TextBlock x:Name="timerTextBlock"/>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Position"/>
-                        <TextBlock x:Name="positionTextBlock"/>
+                        <StackPanel Orientation="Vertical" Margin="10 0 50 0">
+                            <TextBlock Text="Position 1:"/>
+                            <TextBlock x:Name="position1TextBlock"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="Position 2:"/>
+                            <TextBlock x:Name="position2TextBlock"/>
+                        </StackPanel>
+                        
                     </StackPanel>
+                    <TextBlock Text="Status"/>
+                    <TextBox x:Name="statusTextBox" Height="200" TextWrapping="Wrap"/>
                 </StackPanel>
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
                     <StackPanel x:Name="graphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Bisque"/>
-                    <StackPanel x:Name="refGraphStackPanel" Orientation="Horizontal" Height="200" Width="600" Background="Aqua"/>
+                    <StackPanel x:Name="refGraphStackPanel" Orientation="Horizontal" Height="300" Width="600" Background="Aqua"/>
                 </StackPanel>
             </StackPanel>
         </StackPanel>
