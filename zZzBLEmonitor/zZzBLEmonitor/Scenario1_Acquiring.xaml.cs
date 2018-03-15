@@ -90,7 +90,7 @@ namespace zZzBLEmonitor
                 nameDeviceConnected.Text = $"Device: {rootPage.selectedDeviceName}";
                 connectButton.IsEnabled = true;
                 listOfUartDevices = new ObservableCollection<DeviceInformation>();
-                ListAvailableUartPorts();
+                //ListAvailableUartPorts();
             }
             else
             {
@@ -304,8 +304,8 @@ namespace zZzBLEmonitor
                         // Starts to read the sensors
                         characteristic.ValueChanged += Characteristic_ValueChanged;
                         IsValueChangedHandlerRegistered = true;
-                        await WriteAsync(beltDataWriteObject, "s");
-                        BeltListen();
+                        //await WriteAsync(beltDataWriteObject, "s");
+                        //BeltListen();
                     }
                     else
                     {
@@ -322,9 +322,9 @@ namespace zZzBLEmonitor
             {// Unregister for notifications
                 GattCharacteristic characteristic = selectedCharacteristic.Last();
                 characteristic.ValueChanged -= Characteristic_ValueChanged;
-                await WriteAsync(beltDataWriteObject, "t");//Stops belt MCU 
-                CancelReadTask();
-                CloseDevice();
+                //await WriteAsync(beltDataWriteObject, "t");//Stops belt MCU 
+                //CancelReadTask();
+                //CloseDevice();
                 listOfUartDevices.Clear();
                 if (record == 1)
                     WriteDataToFile();
@@ -445,16 +445,16 @@ namespace zZzBLEmonitor
         {
 
             rootPage.folderName = "Data Acquired";
-            rootPage.fileName = "bleData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
-            string beltFileName = "refData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
+            rootPage.fileName = "bleOnlyData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
+            //string beltFileName = "refData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
             StorageFile beltFile = null;
             try
             {
                 rootPage.dataFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(rootPage.folderName, CreationCollisionOption.OpenIfExists);
                 rootPage.dataFile = await rootPage.dataFolder.CreateFileAsync(rootPage.fileName, CreationCollisionOption.ReplaceExisting);
-                beltFile = await rootPage.dataFolder.CreateFileAsync(beltFileName, CreationCollisionOption.ReplaceExisting);
+                //beltFile = await rootPage.dataFolder.CreateFileAsync(beltFileName, CreationCollisionOption.ReplaceExisting);
                 await FileIO.WriteTextAsync(rootPage.dataFile, imuData);
-                await FileIO.WriteTextAsync(beltFile, beltData);
+                //await FileIO.WriteTextAsync(beltFile, beltData);
                 rootPage.notifyFlyout("Data stored", acquireButton);
                 /* Copies the file path to the clipboard */
                 var dataPackage = new DataPackage();
