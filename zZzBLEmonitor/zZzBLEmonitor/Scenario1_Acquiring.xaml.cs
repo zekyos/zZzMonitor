@@ -60,12 +60,16 @@ namespace zZzBLEmonitor
         Stopwatch stopwatch = new Stopwatch();
         public int record = 0;//If active, starts to record data to the Strings
         // >> Serial communication
-        public string beltData = "";
+        public string scgData = "";
         public string imuData = "";
-        static string beltIdString = "USB#VID_0451&PID_BEF3&MI_00#6&3030f56c&0&0000#";
-        private SerialDevice beltSerialPort = null;
-        DataReader beltDataReaderObject = null;
-        DataWriter beltDataWriteObject = null;
+        // Devic instance path
+        // USB\VID_0451&PID_BEF3&MI_06\6&9AAFBC6&0&0006
+        //static string scgIdString = "USB#VID_0451&PID_BEF3&MI_06#6&9AAFBC6&0&0006#";
+        static string scgIdString = "USB#VID_0451&PID_BEF3&MI_00#6&9aafbc6&0&0000#";
+
+        private SerialDevice scgSerialPort = null;
+        DataReader scgDataReaderObject = null;
+        DataWriter scgDataWriteObject = null;
         private ObservableCollection<DeviceInformation> listOfUartDevices;
         private CancellationTokenSource ReadCancellationTokenSource;
 
@@ -85,7 +89,7 @@ namespace zZzBLEmonitor
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             acquireButton.IsEnabled = false;
-            if (rootPage.selectedDeviceId != null)
+            if (true) //(rootPage.selectedDeviceId != null)
             {
                 nameDeviceConnected.Text = $"Device: {rootPage.selectedDeviceName}";
                 connectButton.IsEnabled = true;
@@ -110,7 +114,7 @@ namespace zZzBLEmonitor
 
                 foreach (DeviceInformation port in dis)
                 {
-                    if (port.Id.Contains(beltIdString))
+                    if (port.Id.Contains(scgIdString))
                     {
                         listOfUartDevices.Add(port);
                         Debug.WriteLine(port.Id + "added");
@@ -118,12 +122,12 @@ namespace zZzBLEmonitor
                 }
                 if (listOfUartDevices.Count != 0)
                 {
-                    beltSerialPort = await SerialDevice.FromIdAsync(listOfUartDevices.Last().Id);
+                    scgSerialPort = await SerialDevice.FromIdAsync(listOfUartDevices.Last().Id);
                     var IsNull = true;
                     int counter = 0;
                     do
                     {
-                        if (beltSerialPort != null)
+                        if (scgSerialPort != null)
                         {
                             IsNull = false;
                         }
@@ -134,15 +138,16 @@ namespace zZzBLEmonitor
 
                     if (IsNull != true)
                     {
-                        beltDataWriteObject = new DataWriter(beltSerialPort.OutputStream);
+                        scgDataWriteObject = new DataWriter(scgSerialPort.OutputStream);
                         // Configure serial settings
-                        beltSerialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
-                        beltSerialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
-                        beltSerialPort.BaudRate = 9600;
-                        beltSerialPort.Parity = SerialParity.None;
-                        beltSerialPort.StopBits = SerialStopBitCount.One;
-                        beltSerialPort.DataBits = 8;
-                        beltSerialPort.Handshake = SerialHandshake.None;
+                        scgSerialPort.WriteTimeout = TimeSpan.FromMilliseconds(1000);
+                        scgSerialPort.ReadTimeout = TimeSpan.FromMilliseconds(1000);
+                        //scgSerialPort.BaudRate = 9600;
+                        scgSerialPort.BaudRate = 115200;
+                        scgSerialPort.Parity = SerialParity.None;
+                        scgSerialPort.StopBits = SerialStopBitCount.One;
+                        scgSerialPort.DataBits = 8;
+                        scgSerialPort.Handshake = SerialHandshake.None;
                         // Create cancellation token object to close I/O operations when closing the device
                         ReadCancellationTokenSource = new CancellationTokenSource();
                         rootPage.notifyFlyout("UART ready", connectButton);
@@ -188,7 +193,7 @@ namespace zZzBLEmonitor
             refGraph.Background(Colors.Black);
             refGraph.AddPlot(Colors.White);
             rootPage.ShowProgressRing(connectingProgressRing, true);
-            if (IsValueChangedHandlerRegistered)
+            /*if (IsValueChangedHandlerRegistered)
             {// Reconnecting
                 acquireButton.IsEnabled = false;
                 foreach (GattCharacteristic characteristic in selectedCharacteristic)
@@ -200,8 +205,8 @@ namespace zZzBLEmonitor
                 acquireButton.Icon = new FontIcon { Glyph = "\uE9D9" };
                 selectedService = null;
                 selectedCharacteristic = null;
-            }
-            if (rootPage.selectedDeviceId != null)
+            }*/
+            /*if (rootPage.selectedDeviceId != null)
             {// A device has been selected
                 try
                 {
@@ -213,7 +218,7 @@ namespace zZzBLEmonitor
                     // ERROR_DEVICE_NOT_AVAILABLE because the bluetooth radio is off
                 }
 
-                if (sensorTagBLE != null)
+                if (true)//(sensorTagBLE != null)
                 {
                     GattDeviceServicesResult servicesResult = null;
                     GattCharacteristicsResult characResult = null;
@@ -275,9 +280,11 @@ namespace zZzBLEmonitor
                     rootPage.notifyFlyout(
                         "Connection failed. Check that the device is on.", connectButton);
                 }
-            }
+            }*/
             rootPage.ShowProgressRing(connectingProgressRing, false);
             connectButton.IsEnabled = true;
+            // Comment out when BLE active
+            acquireButton.IsEnabled = true;
         }
 
         // -->> Aquire data <<--
@@ -287,30 +294,30 @@ namespace zZzBLEmonitor
         private async void acquireButton_Click(object sender, RoutedEventArgs e)
         {
             acquireButton.IsEnabled = false;
-            if (!IsValueChangedHandlerRegistered)
+            if (acquireButton.Label != "Stop")//(!IsValueChangedHandlerRegistered)
             {// Not registered to notifications
                 try
                 {
-                    GattCharacteristic characteristic = selectedCharacteristic.Last();
+                    /*GattCharacteristic characteristic = selectedCharacteristic.Last();
                     GattCommunicationStatus result =
                     await characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
                         GattClientCharacteristicConfigurationDescriptorValue.Notify);
                     if (result == GattCommunicationStatus.Success)
-                    {
+                    {*/
                         // Updates the GUI
                         acquireButton.Label = "Stop";
                         acquireButton.Icon = new SymbolIcon(Symbol.Stop);
                         recordButton.Visibility = Visibility.Visible;
                         // Starts to read the sensors
-                        characteristic.ValueChanged += Characteristic_ValueChanged;
-                        IsValueChangedHandlerRegistered = true;
-                        await WriteAsync(beltDataWriteObject, "s");
+                        //characteristic.ValueChanged += Characteristic_ValueChanged;
+                        //IsValueChangedHandlerRegistered = true;
+                        await WriteAsync(scgDataWriteObject, "s");
                         BeltListen();
-                    }
+                    /*}
                     else
                     {
                         rootPage.notifyFlyout("Error acquiring! " + result.ToString(), acquireButton);
-                    }
+                    }*/
                 }
                 catch (Exception ex) //(UnauthorizedAccessException ex)
                 {
@@ -320,16 +327,16 @@ namespace zZzBLEmonitor
             }
             else
             {// Unregister for notifications
-                GattCharacteristic characteristic = selectedCharacteristic.Last();
-                characteristic.ValueChanged -= Characteristic_ValueChanged;
-                await WriteAsync(beltDataWriteObject, "t");//Stops belt MCU 
+                //GattCharacteristic characteristic = selectedCharacteristic.Last();
+                //characteristic.ValueChanged -= Characteristic_ValueChanged;
+                await WriteAsync(scgDataWriteObject, "t");//Stops belt MCU 
                 CancelReadTask();
                 CloseDevice();
                 listOfUartDevices.Clear();
                 if (record == 1)
                     WriteDataToFile();
                 record = 0;
-                IsValueChangedHandlerRegistered = false;
+                //IsValueChangedHandlerRegistered = false;
                 recordButton.Visibility = Visibility.Collapsed;
                 recordButton.Icon = new FontIcon { Glyph = "\uE7C8" };
                 acquireButton.Label = "Acquire";
@@ -443,25 +450,29 @@ namespace zZzBLEmonitor
         /// 
         private async void WriteDataToFile()
         {
+            // Data formatting
+            scgData = scgData.Replace("-","");
 
             rootPage.folderName = "Data Acquired";
-            rootPage.fileName = "bleData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
-            string beltFileName = "refData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
-            StorageFile beltFile = null;
+            //rootPage.fileName = "bleData-" + rootPage.selectedDeviceName + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
+            rootPage.fileName = "scgImuData" + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".csv";
+            string scgFileName = "scgImuData" + DateTime.Now.ToString("_yyyy-dd-MM_HHmmss") + ".txt";
+            StorageFile scgImuFile = null;
+
             try
             {
                 rootPage.dataFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(rootPage.folderName, CreationCollisionOption.OpenIfExists);
-                rootPage.dataFile = await rootPage.dataFolder.CreateFileAsync(rootPage.fileName, CreationCollisionOption.ReplaceExisting);
-                beltFile = await rootPage.dataFolder.CreateFileAsync(beltFileName, CreationCollisionOption.ReplaceExisting);
-                await FileIO.WriteTextAsync(rootPage.dataFile, imuData);
-                await FileIO.WriteTextAsync(beltFile, beltData);
+                //rootPage.dataFile = await rootPage.dataFolder.CreateFileAsync(rootPage.fileName, CreationCollisionOption.ReplaceExisting);
+                scgImuFile = await rootPage.dataFolder.CreateFileAsync(scgFileName, CreationCollisionOption.ReplaceExisting);
+                //await FileIO.WriteTextAsync(rootPage.dataFile, imuData);
+                await FileIO.WriteTextAsync(scgImuFile, scgData);
                 rootPage.notifyFlyout("Data stored", acquireButton);
                 /* Copies the file path to the clipboard */
                 var dataPackage = new DataPackage();
                 dataPackage.SetText(rootPage.dataFolder.Path.ToString());
                 Clipboard.SetContent(dataPackage);
                 imuData = "";
-                beltData = "";
+                scgData = "";
             }
             catch (Exception ex)
             {
@@ -504,12 +515,12 @@ namespace zZzBLEmonitor
         {
             try
             {
-                if (beltSerialPort != null)
+                if (scgSerialPort != null)
                 {
-                    beltDataReaderObject = new DataReader(beltSerialPort.InputStream);
+                    scgDataReaderObject = new DataReader(scgSerialPort.InputStream);
 
                     // keep reading the serial input
-                    var trash = beltSerialPort.InputStream;
+                    var trash = scgSerialPort.InputStream;
                     while (true)
                     {
                         await BeltReadAsync(ReadCancellationTokenSource.Token);
@@ -528,10 +539,10 @@ namespace zZzBLEmonitor
             finally
             {
                 // Cleanup once complete
-                if (beltDataReaderObject != null)
+                if (scgDataReaderObject != null)
                 {
-                    beltDataReaderObject.DetachStream();
-                    beltDataReaderObject = null; ;
+                    scgDataReaderObject.DetachStream();
+                    scgDataReaderObject = null; ;
                 }
             }
         }
@@ -551,26 +562,66 @@ namespace zZzBLEmonitor
             cancellationToken.ThrowIfCancellationRequested();
 
             // Set InputStreamOptions to complete the asynchronous read operation when one or more bytes is available
-            beltDataReaderObject.InputStreamOptions = InputStreamOptions.Partial;
+            scgDataReaderObject.InputStreamOptions = InputStreamOptions.Partial;
 
             using (var childCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 // Create a task object to wait for data on the serialPort.InputStream
-                beltLoadAsyncTask = beltDataReaderObject.LoadAsync(ReadBufferLength).AsTask(childCancellationTokenSource.Token);
+                beltLoadAsyncTask = scgDataReaderObject.LoadAsync(ReadBufferLength).AsTask(childCancellationTokenSource.Token);
 
                 // Launch the task and wait
                 UInt32 bytesRead = await beltLoadAsyncTask;
                 if (bytesRead > 0)
                 {
                     byte[] newValue = new byte[bytesRead];
-                    beltDataReaderObject.ReadBytes(newValue);
-                    newValue[2] = newValue[0];
-                    UInt16 belt = BitConverter.ToUInt16(newValue, 1);
+                    //Reading bytes
+                    scgDataReaderObject.ReadBytes(newValue);
+                    scgData += BitConverter.ToString(newValue);
+                    //string tempStr = "";
+                    //byte[] tempVal = new byte[2];
+                    //int counter = 0;
+                    /*for (int i = 0; i < 11; i+=2)
+                    {//Getting Acc and Gyr values
+                        //tempVal[0] = newValue[i+1];
+                        //tempVal[1] = newValue[i];
+                        Int16 axisVal = BitConverter.ToInt16(newValue, i);
+                        tempStr += axisVal.ToString() + ",";
+                        //tmp0 = unchecked((sbyte)newValue[i]);
+                        //tempStr += tmp0.ToString() + ",";
+                        //newData[counter] = (tmp0 * 360) / 256;
+                        /*counter++;
+                        if (counter >= 3)
+                        {
+                            tempStr += position.ToString() + "\n";
+                            if (record == 1)//Recording?
+                                imuData += tempStr;//Save to file
+                            tempStr = "";//Resets tempStr
+                            double[] temp = new double[4];
+                            for (int j = 0; j < 3; j++)
+                                temp[j] = newData[j];
+                            temp[3] = (double)position;
+                            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal,
+                            () =>
+                            {
+                                temp[1] *= 2;
+                                graph.AddPoints(temp);
+                            });
+                            counter = 0;
+                        }*/
+                    /*}
                     if (record == 1)
-                        beltData += belt.ToString() + "\n";
+                        scgData += tempStr + "0" + "\n";
+                    tempStr = "";*/
+
+
+                    /*scgDataReaderObject.ReadBytes(newValue);
+                    newValue[2] = newValue[0];
+                    UInt16 belt = BitConverter.ToInt16(newValue, 1);
+                    if (record == 1)
+                        scgData += belt.ToString() + "\n";
                     double[] temp = new double[1];
                     temp[0] = (double)(belt - 33032) * 0.05;
-                    refGraph.AddPoints(temp);
+                    refGraph.AddPoints(temp);*/
                 }
             }
         }
@@ -598,11 +649,11 @@ namespace zZzBLEmonitor
         /// </summary>
         private void CloseDevice()
         {
-            if (beltSerialPort != null)
+            if (scgSerialPort != null)
             {
-                beltSerialPort.Dispose();
+                scgSerialPort.Dispose();
             }
-            beltSerialPort = null;
+            scgSerialPort = null;
             listOfUartDevices.Clear();
         }
 
